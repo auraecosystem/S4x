@@ -1,0 +1,9 @@
+# Docker & System caches
+.docker/
+*.log
+.env
+
+# Build outputs
+dist/
+build/
+bin/

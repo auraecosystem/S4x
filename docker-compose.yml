@@ -1,46 +1,45 @@
 version: '3.8'
 
 services:
-  postgres_db:
-    image: postgres:16-alpine
-    container_name: postgres_db
-    environment:
-      POSTGRES_USER: app_user
-      POSTGRES_PASSWORD: secure_db_password
-      POSTGRES_DB: app_database
-    ports:
-      - "5432:5432"
+  # Structural Node Application Backend
+  aura-moby-engine:
+    build:
+      context: .
+      dockerfile: Dockerfile
     volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./migrations:/docker-entrypoint-initdb.d
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U app_user -d app_database"]
-      interval: 3s
-      retries: 5
-
-  redis_cache:
-    image: redis:7-alpine
-    container_name: redis_cache
-    ports:
-      - "6379:6379"
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 3s
-      retries: 5
-
-  web_server:
-    build: .
-    container_name: web_server
-    ports:
-      - "8080:8080"
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./etc/nginx:/etc/nginx:ro
     environment:
-      - DB_CONN_STR=postgres://app_user:secure_db_password@postgres_db:5432/app_database?sslmode=disable
-      - REDIS_URL=redis_cache:6379
+      - NODE_ENV=production
+      - DB_HOST=aura-db
     depends_on:
-      postgres_db:
+      aura-db:
         condition: service_healthy
-      redis_cache:
-        condition: service_healthy
+    networks:
+      - aura-network
+
+  # Decentralized Database Schema Hook
+  aura-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: aura_node_telemetry
+      POSTGRES_USER: aura_admin
+      POSTGRES_PASSWORD: secure_node_token_2026
+    volumes:
+      # Maps the custom initialization script into the container boot pathway
+      - ./—01_init.sql:/docker-entrypoint-initdb.d/01_init.sql:ro
+      - aura-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aura_admin -d aura_node_telemetry"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - aura-network
+
+networks:
+  aura-network:
+    driver: bridge
 
 volumes:
-  postgres_data:
+  aura-db-data:

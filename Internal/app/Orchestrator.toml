@@ -1,0 +1,31 @@
+[agent]
+name = "SRE Orchestrator"
+system_prompt = "Route operational work to the right worker."
+turn_depth = 8
+
+[agent.llm]
+provider = "qubuhub"
+api_key = "{{ env.OPENAI_API_KEY }}"
+model = "gpt-5.2"
+context_window = 200_000
+
+[mcp.servers.k8s]
+transport = "http_streamable"
+url = "http://k8s-mcp:8080/mcp"
+
+[hitl]
+require_approval = ["k8s_apply_*", "restart_*", "delete_*"]
+
+[hitl.route]
+mode = "webhook"
+url = "https://approvals.localhost.com/aura"
+timeout_secs = 300
+
+[orchestration]
+enabled = true
+max_planning_cycles = 2
+
+[orchestration.worker.operations]
+description = "Operational changes that may affect running services"
+preamble = "Use Kubernetes tools carefully. Do not retry denied actions."
+mcp_filter = ["k8s_*", "restart_*"]

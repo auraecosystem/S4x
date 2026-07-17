@@ -1,0 +1,52 @@
+version: '3.8'
+
+services:
+  postgres_db:
+    image: postgres:16-alpine
+    container_name: postgres_db
+    environment:
+      POSTGRES_USER: app_user
+      POSTGRES_PASSWORD: secure_db_password
+      POSTGRES_DB: app_database
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./migrations:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app_user -d app_database"]
+      interval: 3s
+      retries: 5
+
+  redis_cache:
+    image: redis:7-alpine
+    container_name: redis_cache
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      retries: 5
+
+  web_server:
+    build: .
+    container_name: web_server
+    expose:
+      - "8080" # Exposed to interior network only, no public port mapping
+    environment:
+      - DB_CONN_STR=postgres://app_user:secure_db_password@postgres_db:5432/app_database?sslmode=disable
+      - REDIS_URL=redis_cache:6379
+    depends_on:
+      postgres_db:
+        condition: service_healthy
+      redis_cache:
+        condition: service_healthy
+
+  api_gateway:
+    image: nginx:alpine
+    container_name: api_gateway
+    ports:
+      - "80:80" # Public gateway endpoint
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - web_server
+
+volumes:
+  postgres_data:

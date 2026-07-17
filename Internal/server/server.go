@@ -173,3 +173,7 @@ func authMiddleware(next http.Handler) http.Handler {
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
+
+// Public and metrics collection handlers
+mux.Handle("GET /metrics", promhttp.Handler())
+mux.Handle("GET /api/user", prometheusMiddleware(corsMiddleware(authMiddleware(http.HandlerFunc(handleGetUser)))))
